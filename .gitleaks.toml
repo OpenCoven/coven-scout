@@ -1,0 +1,14 @@
+[allowlist]
+  description = "coven-scout test/example fixtures — not real secrets"
+  regexes = [
+    # Example keys in docs/tests
+    '''COVEN_SCOUT_ALLOWED_PATHS''',
+    # Hex digests in checksum tests
+    '''[0-9a-f]{40,}''',
+  ]
+  paths = [
+    '''docs/''',
+    '''tests/''',
+    '''README\.md''',
+    '''AGENTS\.md''',
+  ]
