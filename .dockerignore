@@ -1,0 +1,13 @@
+# Build artefacts and VCS state never belong in the image context
+target/
+.git/
+.github/
+
+# Dev tooling and docs that the build does not need
+docs/
+.pre-commit-config.yaml
+.gitleaks.toml
+.secrets.baseline
+.env*
+.DS_Store
+*.swp
