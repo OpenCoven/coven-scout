@@ -24,19 +24,81 @@
 
 ## Installation
 
+### Prebuilt binaries
+
+Download the archive for your platform from the
+[latest release](https://github.com/OpenCoven/coven-scout/releases/latest):
+
+| Platform | Archive |
+|---|---|
+| Linux x86_64 (static, musl) | `coven-scout-x86_64-unknown-linux-musl.tar.gz` |
+| Linux aarch64 (static, musl) | `coven-scout-aarch64-unknown-linux-musl.tar.gz` |
+| macOS Apple Silicon | `coven-scout-aarch64-apple-darwin.tar.gz` |
+| macOS Intel | `coven-scout-x86_64-apple-darwin.tar.gz` |
+
+```bash
+# Example: Linux x86_64. Swap the target triple for your platform.
+TARGET=x86_64-unknown-linux-musl
+BASE=https://github.com/OpenCoven/coven-scout/releases/latest/download
+curl -fsSLO "$BASE/coven-scout-$TARGET.tar.gz"
+curl -fsSLO "$BASE/SHA256SUMS"
+sha256sum --check --ignore-missing SHA256SUMS   # macOS: shasum -a 256 --check --ignore-missing SHA256SUMS
+tar -xzf "coven-scout-$TARGET.tar.gz" coven-scout
+install -m 755 coven-scout ~/.local/bin/coven-scout   # or anywhere on your PATH
+```
+
+Every release ships a `SHA256SUMS` file alongside the archives. Windows is not
+supported: `COVEN_SCOUT_ALLOWED_PATHS` is colon-separated.
+
+### Docker
+
+The repository ships a multi-stage [`Dockerfile`](Dockerfile) that builds a
+static binary and runs it as a non-root user in a distroless image. Only
+`/workspace` (bind-mount your project there) and `/tmp` are reachable from
+inside the container.
+
+```bash
+docker build -t coven-scout .
+
+# The server speaks MCP over stdio, so keep stdin open with -i.
+docker run -i --rm -v "$PWD:/workspace" coven-scout
+```
+
+MCP client configuration for the container (e.g. Claude Desktop
+`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "coven-scout": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-v", "/Users/you/projects:/workspace",
+        "coven-scout"
+      ]
+    }
+  }
+}
+```
+
+The container runs as uid `65532`. On Linux hosts, add
+`"--user", "$(id -u):$(id -g)"` to the args if the mounted project must stay
+writable by your own user.
+
 ### From source
 
 ```bash
 git clone https://github.com/OpenCoven/coven-scout
 cd coven-scout
-cargo build --release
+cargo build --release --locked
 # Binary at: target/release/coven-scout
 ```
 
 ### Via cargo install
 
 ```bash
-cargo install --git https://github.com/OpenCoven/coven-scout
+cargo install --git https://github.com/OpenCoven/coven-scout --locked
 ```
 
 ---

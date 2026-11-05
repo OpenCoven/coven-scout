@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo build --locked
+      - run: cargo test --locked
+
+  lint:
+    name: Format and clippy (advisory)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Advisory (step-level) until the existing fmt/clippy findings on main are
+      # cleaned up, so the job stays green and the PR merge state stays CLEAN.
+      # Remove the two continue-on-error lines to make them required.
+      - run: cargo fmt --all --check
+        continue-on-error: true
+      - run: cargo clippy --all-targets --locked -- -D warnings
+        continue-on-error: true
+
+  docker:
+    name: Docker build and MCP introspection
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build image
+        run: docker build -t coven-scout .
+
+      - name: Runs as non-root
+        run: |
+          test "$(docker inspect -f '{{.Config.User}}' coven-scout)" = "65532:65532"
+
+      - name: initialize + tools/list over stdio
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+          | docker run -i --rm coven-scout | tee transcript.jsonl
+          jq -s -e '.[] | select(.id == 1) | .result.serverInfo.name == "coven-scout"' transcript.jsonl
+          jq -s -e '.[] | select(.id == 2) | .result.tools | map(.name) | contains(["read","write","list","find","test"])' transcript.jsonl
